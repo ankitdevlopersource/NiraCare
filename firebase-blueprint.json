@@ -1,0 +1,70 @@
+{
+  "entities": {
+    "Booking": {
+      "title": "Bed Booking",
+      "description": "Details of a bed booking made by a patient.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "hospitalId": { "type": "string" },
+        "patientName": { "type": "string" },
+        "aadharNumber": { "type": "string" },
+        "mobileNumber": { "type": "string" },
+        "email": { "type": "string" },
+        "patientType": { "type": "string" },
+        "address": { "type": "string" },
+        "bedType": { "type": "string" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "reportUrl": { "type": "string" }
+      },
+      "required": ["hospitalId", "patientName", "aadharNumber", "mobileNumber", "email", "bedType", "status", "createdAt"]
+    },
+    "AmbulanceBooking": {
+      "title": "Ambulance Booking",
+      "description": "Details of an ambulance booking.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "patientName": { "type": "string" },
+        "fatherName": { "type": "string" },
+        "aadharNumber": { "type": "string" },
+        "mobileNumber": { "type": "string" },
+        "email": { "type": "string" },
+        "ambulanceType": { "type": "string" },
+        "pickupLocation": {
+          "type": "object",
+          "properties": {
+            "lat": { "type": "number" },
+            "lng": { "type": "number" },
+            "address": { "type": "string" }
+          }
+        },
+        "destination": { "type": "string" },
+        "status": { "type": "string" },
+        "driverId": { "type": "string" },
+        "driverLocation": {
+          "type": "object",
+          "properties": {
+            "lat": { "type": "number" },
+            "lng": { "type": "number" }
+          }
+        },
+        "otp": { "type": "string" },
+        "otpVerified": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["patientName", "fatherName", "aadharNumber", "mobileNumber", "email", "ambulanceType", "pickupLocation", "status", "createdAt"]
+    }
+  },
+  "firestore": {
+    "bookings": {
+      "schema": "Booking",
+      "description": "Collection of all bed bookings."
+    },
+    "ambulance_bookings": {
+      "schema": "AmbulanceBooking",
+      "description": "Collection of all ambulance bookings."
+    }
+  }
+}

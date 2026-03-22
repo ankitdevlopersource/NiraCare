@@ -1,0 +1,85 @@
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Collection: bookings
+// Document ID: auto-generated
+// Fields:
+//   - hospitalId: string (required) - ID of the hospital
+//   - hospitalName: string (required) - Name of the hospital
+//   - patientName: string (required) - Full name of the patient
+//   - aadharNumber: string (required) - 12-digit Aadhar number
+//   - mobileNumber: string (required) - 10-digit mobile number
+//   - email: string (required) - Valid email address
+//   - patientType: string (required) - Emergency type (Critical, Serious, Stable)
+//   - address: string (required) - Patient's address
+//   - bedType: string (required) - Type of bed (ICU, General, etc.)
+//   - status: string (required) - Booking status (Pending, Admitted, Rejected)
+//   - createdAt: timestamp (required) - Server timestamp of creation
+//   - reportUrl: string (optional) - URL to uploaded report
+//
+// ===============================================================
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+         request.auth.token.email == "Ankitkumardopta@gmail.com");
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidBooking(data) {
+      return data.keys().hasAll(['hospitalId', 'hospitalName', 'patientName', 'aadharNumber', 'mobileNumber', 'email', 'patientType', 'address', 'bedType', 'status', 'createdAt']) &&
+             data.hospitalId is string &&
+             data.patientName is string && data.patientName.size() > 0 && data.patientName.size() < 200 &&
+             data.aadharNumber is string && data.aadharNumber.size() >= 12 &&
+             data.mobileNumber is string && data.mobileNumber.size() >= 10 &&
+             isValidEmail(data.email) &&
+             data.patientType in ['Critical', 'Serious', 'Stable'] &&
+             data.status in ['Pending', 'Admitted', 'Rejected', 'Discharged'] &&
+             (data.createdAt is timestamp || data.createdAt == request.time);
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /bookings/{bookingId} {
+      // Allow public creation for the patient portal
+      allow create: if isValidBooking(request.resource.data);
+      
+      // Hospitals (admins) can read and update bookings
+      allow read: if isAdmin();
+      allow update: if isAdmin() && isValidBooking(request.resource.data);
+    }
+
+    match /ambulance_bookings/{bookingId} {
+      allow create: if true; // Allow public creation for now
+      allow read: if true; // Allow drivers to see orders
+      allow update: if true; // Allow drivers to pick orders
+    }
+
+    match /users/{userId} {
+      allow read, write: if request.auth.uid == userId || isAdmin();
+    }
+
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

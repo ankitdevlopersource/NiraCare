@@ -1,0 +1,5 @@
+{
+  "name": "NiraCare",
+  "description": "A smart medical referral and hospital bed booking system for doctors and healthcare providers.",
+  "requestFramePermissions": ["geolocation"]
+}
