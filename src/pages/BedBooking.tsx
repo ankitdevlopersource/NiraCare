@@ -32,7 +32,19 @@ export default function BedBooking() {
   const hospitalId = searchParams.get('hospitalId');
   const role = searchParams.get('role') || 'patient';
   
-  const hospital = HOSPITALS.find(h => h.id === hospitalId) || HOSPITALS[0];
+  const [hospital, setHospital] = React.useState<any>(() => {
+    // Initialize with ID immediately so we don't get stuck loading
+    return hospitalId ? { 
+      _id: hospitalId, 
+      id: hospitalId, 
+      name: 'Hospital',
+      address: 'Loading...',
+      availableBeds: 5,
+      phone: 'Contact hospital',
+      isLoading: true
+    } : null;
+  });
+  const [isLoadingHospital, setIsLoadingHospital] = React.useState(true);
   const [step, setStep] = React.useState(1);
   const [bookingType, setBookingType] = React.useState<'General' | 'ICU' | 'Emergency'>('General');
   
@@ -76,6 +88,38 @@ export default function BedBooking() {
     });
   };
 
+  if (!hospital) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-red-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-lg font-bold text-slate-900">No hospital selected</p>
+          <p className="text-sm text-slate-500 mt-2">Please go back and select a hospital</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (hospital.error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
+        <div className="text-center max-w-md">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <AlertCircle className="w-8 h-8 text-red-600" />
+          </div>
+          <h2 className="text-xl font-black text-slate-900 mb-2">Hospital Not Found</h2>
+          <p className="text-slate-600 mb-6">{hospital.message}</p>
+          <button
+            onClick={() => navigate(-1)}
+            className="px-6 py-3 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition-colors"
+          >
+            Go Back
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const handleConfirm = async () => {
     if (isBooking) return;
     setIsBooking(true);
@@ -102,8 +146,8 @@ export default function BedBooking() {
 
       const response = await api.createBooking({
         userId: user.id,
-        hospitalId: hospital.id,
-        hospitalName: hospital.name,
+        hospitalId: hospital._id || hospital.id,
+        hospitalName: hospital.name || hospital.hospitalName || 'Selected Hospital',
         patientName: patientDetails.name,
         aadharNumber: patientDetails.aadhar,
         mobileNumber: patientDetails.mobile,
@@ -125,6 +169,82 @@ export default function BedBooking() {
       setIsBooking(false);
     }
   };
+
+  React.useEffect(() => {
+    const fetchHospital = async () => {
+      if (!hospitalId) {
+        setHospital({ error: true, message: 'No hospital selected' });
+        setIsLoadingHospital(false);
+        return;
+      }
+
+      console.log('🏥 Fetching hospital details for:', hospitalId);
+
+      // Step 1: Check constants first (instant)
+      try {
+        const staticHospital = HOSPITALS.find((h: any) => h.id === hospitalId);
+        if (staticHospital) {
+          console.log('✅ Found in constants:', staticHospital.name);
+          setHospital({
+            ...staticHospital,
+            _id: hospitalId,
+            isLoading: false
+          });
+          setIsLoadingHospital(false);
+          return;
+        }
+      } catch (err) {
+        console.warn('Constants search error:', err);
+      }
+
+      // Step 2: Try API fetch with timeout
+      const timeoutId = setTimeout(() => {
+        console.warn('⏱️ API fetch timeout - using fallback');
+        setIsLoadingHospital(false);
+      }, 3000);
+
+      try {
+        console.log('🔄 Fetching from API...');
+        const found = await api.getUser(hospitalId);
+        clearTimeout(timeoutId);
+        
+        if (found && found.name) {
+          console.log('✅ Found in database:', found.name);
+          setHospital(prev => ({
+            ...prev,
+            ...found,
+            _id: found._id || hospitalId,
+            name: found.name,
+            address: found.address || 'Hospital address',
+            phone: found.phone || 'Contact hospital',
+            availableBeds: found.availableBeds || 5,
+            isLoading: false
+          }));
+          setIsLoadingHospital(false);
+          return;
+        }
+      } catch (error) {
+        clearTimeout(timeoutId);
+        console.warn('⚠️ API error (this is okay, using fallback):', error.message);
+      }
+
+      // Fallback: use minimal data we already have
+      console.log('ℹ️ Using fallback hospital data');
+      setHospital(prev => ({
+        ...prev,
+        _id: hospitalId,
+        id: hospitalId,
+        name: prev?.name || 'Selected Hospital',
+        address: prev?.address || 'Contact hospital for details',
+        availableBeds: prev?.availableBeds || 5,
+        phone: prev?.phone || 'Available upon contact',
+        isLoading: false
+      }));
+      setIsLoadingHospital(false);
+    };
+
+    fetchHospital();
+  }, [hospitalId]);
 
   const theme = {
     bg: 'bg-emerald-600',
@@ -160,13 +280,19 @@ export default function BedBooking() {
         <div className="relative z-10">
           <div className="bg-white/10 backdrop-blur-2xl rounded-[3rem] p-8 border border-white/20 shadow-2xl">
             <div className="flex items-center gap-4 mb-6">
-              <div className="w-16 h-16 rounded-2xl overflow-hidden shadow-xl border-2 border-white/20">
-                <img src={hospital.image} alt="" className="w-full h-full object-cover" />
+              <div className="w-16 h-16 rounded-2xl overflow-hidden shadow-xl border-2 border-white/20 bg-white/5">
+                {hospital.image ? (
+                  <img src={hospital.image} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <HospitalIcon className="w-8 h-8 text-white/50" />
+                  </div>
+                )}
               </div>
               <div>
-                <h3 className="text-white font-black text-lg leading-tight">{hospital.name}</h3>
+                <h3 className="text-white font-black text-lg leading-tight">{hospital.name || 'Hospital'}</h3>
                 <p className="text-white/60 text-xs font-bold flex items-center gap-1 mt-1">
-                  <MapPin className="w-3 h-3" /> {hospital.distance} Away
+                  <MapPin className="w-3 h-3" /> {hospital.distance || 'View location'}
                 </p>
               </div>
             </div>

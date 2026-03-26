@@ -85,10 +85,12 @@ export default function AmbulanceBooking() {
             .filter((u: any) => u.role === 'ambulance' && u.isApproved)
             .map((u: any) => ({
               id: u._id,
+              _id: u._id,
               numberPlate: u.name, // Using name as number plate for now
               type: 'Advanced', // Default type
               status: 'Available', // Default status
-              phone: u.phone || 'N/A'
+              phone: u.phone || 'N/A',
+              location: u.location || null
             }));
           setAmbulances(approvedAmbulances);
         } catch (error) {

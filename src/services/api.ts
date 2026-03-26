@@ -119,6 +119,14 @@ export const api = {
     return response.json();
   },
 
+  async getBookingsByHospital(hospitalId: string) {
+    const response = await fetchWithRetry(`${API_BASE_URL}/bookings/hospital/${hospitalId}`, { method: 'GET' });
+    if (!response.ok) {
+      throw new Error('Failed to fetch hospital bookings');
+    }
+    return response.json();
+  },
+
   async getBookingsByUser(userId: string) {
     const response = await fetchWithRetry(`${API_BASE_URL}/bookings/user/${userId}`, { method: 'GET' });
     if (!response.ok) {
@@ -196,6 +204,46 @@ export const api = {
     const response = await fetchWithRetry(`${API_BASE_URL}/users`, { method: 'GET' });
     if (!response.ok) {
       throw new Error('Failed to fetch users');
+    }
+    return response.json();
+  },
+
+  async getUser(userId: string) {
+    const response = await fetchWithRetry(`${API_BASE_URL}/users/${userId}`, { method: 'GET' });
+    if (!response.ok) {
+      throw new Error('Failed to fetch user');
+    }
+    return response.json();
+  },
+
+  // Notifications
+  async getNotifications(userId: string) {
+    const response = await fetchWithRetry(`${API_BASE_URL}/notifications/${userId}`, { method: 'GET' });
+    if (!response.ok) {
+      throw new Error('Failed to fetch notifications');
+    }
+    return response.json();
+  },
+
+  async markNotificationAsRead(notificationId: string) {
+    const response = await fetchWithRetry(`${API_BASE_URL}/notifications/${notificationId}/read`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    if (!response.ok) {
+      throw new Error('Failed to mark notification as read');
+    }
+    return response.json();
+  },
+
+  async createNotification(notificationData: any) {
+    const response = await fetchWithRetry(`${API_BASE_URL}/notifications`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(notificationData),
+    });
+    if (!response.ok) {
+      throw new Error('Failed to create notification');
     }
     return response.json();
   },

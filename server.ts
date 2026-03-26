@@ -211,10 +211,12 @@ const ambulanceBookingSchema = new mongoose.Schema({
     lat: Number,
     lng: Number
   },
+  ambulanceId: String,
+  ambulanceName: String,
+  driverId: String,
   status: { type: String, default: 'Pending' },
   otp: String,
   otpVerified: { type: Boolean, default: false },
-  driverId: String,
   driverLocation: {
     lat: Number,
     lng: Number
@@ -269,6 +271,18 @@ const feedbackSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
+const notificationSchema = new mongoose.Schema({
+  userId: { type: String, required: true },
+  title: { type: String, required: true },
+  message: { type: String, required: true },
+  type: { type: String, enum: ['booking_request', 'booking_confirmed', 'booking_cancelled', 'otp_generated', 'booking_completed'], default: 'booking_request' },
+  bookingId: String,
+  bookingType: { type: String, enum: ['hospital', 'ambulance'], required: true },
+  isRead: { type: Boolean, default: false },
+  otp: String, // For OTP notifications
+  createdAt: { type: Date, default: Date.now }
+});
+
 const User = mongoose.model("User", userSchema);
 const Booking = mongoose.model("Booking", bookingSchema);
 const AmbulanceBooking = mongoose.model("AmbulanceBooking", ambulanceBookingSchema);
@@ -276,6 +290,7 @@ const Doctor = mongoose.model("Doctor", doctorSchema);
 const Inventory = mongoose.model("Inventory", inventorySchema);
 const Expense = mongoose.model("Expense", expenseSchema);
 const Feedback = mongoose.model("Feedback", feedbackSchema);
+const Notification = mongoose.model("Notification", notificationSchema);
 
 // Nodemailer Transporter
 import nodemailer from 'nodemailer';
@@ -316,8 +331,8 @@ if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
 }
 
 // Pre-defined Owner Credentials
-const OWNER_EMAIL = "owner@healthhaven.com";
-const OWNER_PASSWORD = "owner_password_123";
+const OWNER_EMAIL = "admin@healthhaven.com";
+const OWNER_PASSWORD = "HealthHaven@2026";
 
 // API Routes
 app.post("/api/auth/register", async (req, res) => {
@@ -362,19 +377,19 @@ app.post("/api/auth/login", async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Check if DB is connected
-    if (mongoose.connection.readyState !== 1) {
-      return res.status(503).json({ 
-        message: "Database connection is not ready. Please check MONGODB_URI in settings.",
-        dbStatus: mongoose.connection.readyState 
-      });
-    }
-
-    // Check for pre-defined owner
+    // Check for pre-defined owner FIRST (no DB needed - fastest response)
     if (email === OWNER_EMAIL && password === OWNER_PASSWORD) {
       return res.json({ 
         message: "Login successful", 
         user: { id: "owner-id", name: "System Owner", email: OWNER_EMAIL, role: "owner", isApproved: true } 
+      });
+    }
+
+    // Check if DB is connected (only for non-owner logins)
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({ 
+        message: "Database connection is not ready. Please check MONGODB_URI in settings.",
+        dbStatus: mongoose.connection.readyState 
       });
     }
 
@@ -491,6 +506,19 @@ app.get("/api/users", async (req, res) => {
   }
 });
 
+app.get("/api/users/:id", async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id, { password: 0 }); // Exclude password
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    res.json(user);
+  } catch (error: any) {
+    console.error("Fetch User Error:", error);
+    res.status(500).json({ message: "Error fetching user", error: error.message || error });
+  }
+});
+
 app.post("/api/bookings", async (req, res) => {
   try {
     console.log('Received booking request:', req.body);
@@ -505,6 +533,32 @@ app.post("/api/bookings", async (req, res) => {
 
     const booking = new Booking(req.body);
     await booking.save();
+
+    // Find hospital owners and send notification
+    const hospitalOwners = await User.find({ role: 'hospital' });
+    for (const owner of hospitalOwners) {
+      const notification = new Notification({
+        userId: owner._id.toString(),
+        title: 'New Hospital Booking Request',
+        message: `Patient ${req.body.patientName} has requested hospital admission at ${req.body.hospitalName}`,
+        type: 'booking_request',
+        bookingId: booking._id.toString(),
+        bookingType: 'hospital'
+      });
+      await notification.save();
+    }
+
+    // Send notification to patient
+    const patientNotification = new Notification({
+      userId: req.body.userId,
+      title: 'Hospital Booking Submitted',
+      message: `Your hospital booking request has been submitted. Waiting for hospital confirmation.`,
+      type: 'booking_request',
+      bookingId: booking._id.toString(),
+      bookingType: 'hospital'
+    });
+    await patientNotification.save();
+
     res.status(201).json({ message: "Booking successful", booking });
   } catch (error: any) {
     console.error("Booking Error:", error);
@@ -525,9 +579,33 @@ app.get("/api/bookings", async (req, res) => {
   }
 });
 
+app.get("/api/bookings/hospital/:hospitalId", async (req, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const bookings = await Booking.find({ hospitalId }).sort({ createdAt: -1 });
+    res.json(bookings);
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching hospital bookings", error });
+  }
+});
+
 app.patch("/api/bookings/:id", async (req, res) => {
   try {
     const booking = await Booking.findByIdAndUpdate(req.params.id, req.body, { new: true });
+
+    // Send notification when booking is confirmed/admitted
+    if (req.body.status === 'Admitted' && booking) {
+      const patientNotification = new Notification({
+        userId: booking.userId,
+        title: 'Hospital Booking Confirmed',
+        message: `Your hospital booking has been confirmed. You have been admitted to ${booking.hospitalName}.`,
+        type: 'booking_confirmed',
+        bookingId: booking._id.toString(),
+        bookingType: 'hospital'
+      });
+      await patientNotification.save();
+    }
+
     res.json(booking);
   } catch (error) {
     res.status(500).json({ message: "Error updating booking", error });
@@ -546,12 +624,55 @@ app.get("/api/bookings/user/:userId", async (req, res) => {
 // Ambulance Booking Routes
 app.post('/api/ambulance-bookings', async (req, res) => {
   try {
+    const { ambulanceId, ambulanceName, userId, patientName, fatherName, aadharNumber, mobileNumber, email, destination, pickupLocation } = req.body;
+
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const booking = new AmbulanceBooking({ ...req.body, otp });
+
+    const booking = new AmbulanceBooking({
+      userId,
+      patientName,
+      fatherName,
+      aadharNumber,
+      mobileNumber,
+      email,
+      destination,
+      pickupLocation,
+      ambulanceId,
+      ambulanceName,
+      otp
+    });
     await booking.save();
+
+    // Send notification to the specific ambulance driver
+    const ambulanceDriver = await User.findById(ambulanceId);
+    if (ambulanceDriver) {
+      const notification = new Notification({
+        userId: ambulanceDriver._id.toString(),
+        title: 'New Ambulance Booking Request',
+        message: `Patient ${patientName} has requested your ambulance service to ${destination}. OTP: ${otp}`,
+        type: 'booking_request',
+        bookingId: booking._id.toString(),
+        bookingType: 'ambulance',
+        otp: otp
+      });
+      await notification.save();
+    }
+
+    // Send notification to patient
+    const patientNotification = new Notification({
+      userId: userId,
+      title: 'Ambulance Booking Submitted',
+      message: `Your ambulance booking request for ${ambulanceName} has been submitted. Waiting for confirmation. OTP: ${otp}`,
+      type: 'booking_request',
+      bookingId: booking._id.toString(),
+      bookingType: 'ambulance',
+      otp: otp
+    });
+    await patientNotification.save();
+
     res.status(201).json(booking);
   } catch (error) {
-    res.status(500).json({ message: "Error creating ambulance booking", error });
+    res.status(500).json({ message: "Error creating ambulance booking", error: error.message });
   }
 });
 
@@ -567,6 +688,21 @@ app.get('/api/ambulance-bookings', async (req, res) => {
 app.patch('/api/ambulance-bookings/:id', async (req, res) => {
   try {
     const booking = await AmbulanceBooking.findByIdAndUpdate(req.params.id, req.body, { new: true });
+
+    // Send notification when booking is confirmed
+    if (req.body.status === 'Confirmed' && booking) {
+      const patientNotification = new Notification({
+        userId: booking.userId,
+        title: 'Ambulance Booking Confirmed',
+        message: `Your ambulance booking has been confirmed. OTP: ${booking.otp}`,
+        type: 'booking_confirmed',
+        bookingId: booking._id.toString(),
+        bookingType: 'ambulance',
+        otp: booking.otp
+      });
+      await patientNotification.save();
+    }
+
     res.json(booking);
   } catch (error) {
     res.status(500).json({ message: "Error updating ambulance booking", error });
@@ -579,6 +715,35 @@ app.get('/api/ambulance-bookings/:id', async (req, res) => {
     res.json(booking);
   } catch (error) {
     res.status(500).json({ message: "Error fetching ambulance booking", error });
+  }
+});
+
+// Notification Routes
+app.get('/api/notifications/:userId', async (req, res) => {
+  try {
+    const notifications = await Notification.find({ userId: req.params.userId }).sort({ createdAt: -1 });
+    res.json(notifications);
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching notifications", error });
+  }
+});
+
+app.patch('/api/notifications/:id/read', async (req, res) => {
+  try {
+    const notification = await Notification.findByIdAndUpdate(req.params.id, { isRead: true }, { new: true });
+    res.json(notification);
+  } catch (error) {
+    res.status(500).json({ message: "Error updating notification", error });
+  }
+});
+
+app.post('/api/notifications', async (req, res) => {
+  try {
+    const notification = new Notification(req.body);
+    await notification.save();
+    res.status(201).json(notification);
+  } catch (error) {
+    res.status(500).json({ message: "Error creating notification", error });
   }
 });
 

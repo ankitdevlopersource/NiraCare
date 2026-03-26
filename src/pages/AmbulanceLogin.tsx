@@ -11,8 +11,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate, Link } from 'react-router-dom';
-import { auth } from '../firebase';
-import { signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
+import { api } from '../services/api';
 
 export default function AmbulanceLogin() {
   const navigate = useNavigate();
@@ -28,26 +27,19 @@ export default function AmbulanceLogin() {
     setError('');
     setSuccess('');
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      // Set user data in localStorage
-      const user = auth.currentUser;
-      if (user) {
-        const userData = {
-          id: user.uid,
-          email: user.email,
-          name: user.displayName || 'Ambulance Driver',
-          role: 'ambulance'
-        };
-        localStorage.setItem('user', JSON.stringify(userData));
+      const result = await api.login({ email, password });
+      
+      // Check if the logged-in user has ambulance role
+      if (result.user.role !== 'ambulance') {
+        setError('This login is only for ambulance drivers. Please use the appropriate login page.');
+        localStorage.removeItem('user');
+        return;
       }
+      
       navigate('/app/ambulance-dashboard');
     } catch (err: any) {
       console.error("Login error:", err);
-      if (err.code === 'auth/operation-not-allowed') {
-        setError('Email/Password login is not enabled in Firebase. Please enable it in the Firebase Console.');
-      } else {
-        setError(err.message || 'Failed to login. Please check your credentials.');
-      }
+      setError(err.message || 'Failed to login. Please check your credentials.');
     } finally {
       setIsLoading(false);
     }
@@ -62,8 +54,8 @@ export default function AmbulanceLogin() {
     setError('');
     setSuccess('');
     try {
-      await sendPasswordResetEmail(auth, email);
-      setSuccess('Password reset email sent! Please check your inbox.');
+      // For now, just show a message since we don't have password reset implemented
+      setSuccess('Password reset is not available. Please contact support.');
     } catch (err: any) {
       setError(err.message || 'Failed to send reset email.');
     } finally {

@@ -124,15 +124,15 @@ export default function HospitalDashboard() {
         });
 
         if (currentUser.isApproved) {
-          const [bookingsData, doctorsData, inventoryData, expensesData, statsData] = await Promise.all([
-            api.getBookings(),
+          const [allBookings, doctorsData, inventoryData, expensesData, statsData] = await Promise.all([
+            currentUser.role === 'hospital' ? api.getBookingsByHospital(currentUser._id) : api.getBookings(),
             api.getDoctors(currentUser._id),
             api.getInventory(currentUser._id),
             api.getExpenses(currentUser._id),
             api.getHospitalStats(currentUser._id)
           ]);
           
-          setBookings(bookingsData);
+          setBookings(allBookings);
           setDoctors(doctorsData);
           setInventory(inventoryData);
           setExpenses(expensesData);

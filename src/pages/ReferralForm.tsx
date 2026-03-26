@@ -26,8 +26,23 @@ export default function ReferralForm() {
     gender: 'Male',
     condition: '',
     priority: 'Medium',
-    targetHospitalId: hospitalId || ''
+    targetHospitalId: hospitalId || '',
+    reportFile: null as File | null
   });
+
+  const [reportPreview, setReportPreview] = React.useState<string>('');
+
+  const handleReportUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] || null;
+    setFormData(prev => ({ ...prev, reportFile: file }));
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => setReportPreview(reader.result as string);
+      reader.readAsDataURL(file);
+    } else {
+      setReportPreview('');
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -200,8 +215,18 @@ export default function ReferralForm() {
                           <option key={h.id} value={h.id}>{h.name} ({h.bedsAvailable} beds available)</option>
                         ))}
                       </select>
-                    </div>
-                  </div>
+                    </div>                  <div className="space-y-4">
+                    <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Upload Medical Report</label>
+                    <input
+                      type="file"
+                      accept=".pdf,.jpg,.jpeg,.png"
+                      onChange={handleReportUpload}
+                      className="w-full bg-white border-2 border-slate-100 rounded-2xl py-3 px-4 focus:border-blue-600 outline-none transition-all"
+                    />
+                    {reportPreview && (
+                      <div className="text-xs text-slate-400">Selected: {formData.reportFile?.name}</div>
+                    )}
+                  </div>                  </div>
 
                   <motion.button 
                     whileHover={{ scale: 1.02 }}
@@ -260,6 +285,12 @@ export default function ReferralForm() {
                           {formData.priority}
                         </span>
                       </div>
+                      {formData.reportFile && (
+                        <div className="mt-4 text-sm text-slate-900">
+                          <p className="font-black text-slate-400 uppercase tracking-widest mb-1">Report File</p>
+                          <p>{formData.reportFile.name}</p>
+                        </div>
+                      )}
                       <div className="text-right">
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Date</p>
                         <p className="font-bold text-slate-900 text-xs">{new Date().toLocaleDateString()}</p>

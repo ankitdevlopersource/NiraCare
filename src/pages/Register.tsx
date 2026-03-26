@@ -39,6 +39,17 @@ export default function Register() {
     password: '',
     confirmPassword: '',
     // Hospital specific
+    hospitalName: '',
+    hospitalOwnerName: '',
+    hospitalLicense: '',
+    hospitalEmail: '',
+    // Ambulance specific
+    ambulanceName: '',
+    ambulanceOwnerName: '',
+    ambulanceRegNumber: '',
+    ambulanceDriverName: '',
+    ambulanceLicense: '',
+    // Common/geo
     address: '',
     totalBeds: '',
     availableBeds: '',
@@ -125,16 +136,41 @@ export default function Register() {
 
   const config = getRoleConfig();
 
-  const handleGetLocation = () => {
+  const handleGetLocation = async () => {
     setIsLocating(true);
     if ("geolocation" in navigator) {
       navigator.geolocation.getCurrentPosition(
-        (position) => {
+        async (position) => {
+          const lat = position.coords.latitude;
+          const lng = position.coords.longitude;
+
+          // Update coordinates
           setFormData(prev => ({
             ...prev,
-            lat: position.coords.latitude.toString(),
-            lng: position.coords.longitude.toString()
+            lat: lat.toString(),
+            lng: lng.toString()
           }));
+
+          // Fetch place name using reverse geocoding
+          try {
+            const response = await fetch(
+              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`
+            );
+            const data = await response.json();
+
+            if (data && data.display_name) {
+              // Extract a readable address from the response
+              const address = data.display_name.split(', ').slice(0, 4).join(', ');
+              setFormData(prev => ({
+                ...prev,
+                address: address
+              }));
+            }
+          } catch (error) {
+            console.error("Error fetching place name:", error);
+            // Still set coordinates even if place name fetch fails
+          }
+
           setIsLocating(false);
         },
         (error) => {
@@ -162,11 +198,25 @@ export default function Register() {
       setError("Passwords don't match!");
       return;
     }
-    
+
+    if (role === 'hospital') {
+      if (!formData.hospitalName.trim() || !formData.hospitalOwnerName.trim() || !formData.hospitalLicense.trim() || !formData.hospitalEmail.trim()) {
+        setError('Please fill in all hospital details.');
+        return;
+      }
+    }
+
+    if (role === 'ambulance') {
+      if (!formData.ambulanceName.trim() || !formData.ambulanceOwnerName.trim() || !formData.ambulanceRegNumber.trim() || !formData.ambulanceDriverName.trim() || !formData.ambulanceLicense.trim()) {
+        setError('Please fill in all ambulance details.');
+        return;
+      }
+    }
+
     setIsLoading(true);
     try {
       const registrationData: any = {
-        name: formData.name,
+        name: role === 'hospital' ? formData.hospitalName : role === 'ambulance' ? formData.ambulanceName : formData.name,
         email: formData.email,
         password: formData.password,
         role: role,
@@ -177,8 +227,19 @@ export default function Register() {
       if (role === 'hospital' || role === 'ambulance') {
         registrationData.address = formData.address;
         if (role === 'hospital') {
+          registrationData.hospitalName = formData.hospitalName;
+          registrationData.hospitalOwnerName = formData.hospitalOwnerName;
+          registrationData.hospitalLicense = formData.hospitalLicense;
+          registrationData.hospitalEmail = formData.hospitalEmail;
           registrationData.totalBeds = parseInt(formData.totalBeds);
           registrationData.availableBeds = parseInt(formData.availableBeds);
+        }
+        if (role === 'ambulance') {
+          registrationData.ambulanceName = formData.ambulanceName;
+          registrationData.ambulanceOwnerName = formData.ambulanceOwnerName;
+          registrationData.ambulanceRegNumber = formData.ambulanceRegNumber;
+          registrationData.ambulanceDriverName = formData.ambulanceDriverName;
+          registrationData.ambulanceLicense = formData.ambulanceLicense;
         }
         registrationData.location = {
           lat: parseFloat(formData.lat),
@@ -272,6 +333,30 @@ export default function Register() {
           </div>
 
           <div className="p-10 lg:p-16">
+            {role === 'owner' ? (
+              <div className="space-y-8">
+                <div className="bg-orange-50 border-2 border-orange-200 rounded-2xl p-8">
+                  <h2 className="text-2xl font-bold text-orange-900 mb-4">Owner Access</h2>
+                  
+                  <div className="space-y-4">
+                    <p className="text-sm text-orange-800 font-medium leading-relaxed">
+                      Owner login is restricted to authorized administrators only. 
+                      <br />
+                      If you are an authorized owner, please proceed to login with your assigned credentials.
+                    </p>
+                  </div>
+                </div>
+
+                <button 
+                  type="button"
+                  onClick={() => navigate('/login?role=owner')}
+                  className="w-full bg-orange-600 text-white py-5 rounded-2xl font-bold flex items-center justify-center gap-3 shadow-xl shadow-slate-200 group hover:bg-orange-700 transition-colors"
+                >
+                  Go to Owner Login
+                  <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                </button>
+              </div>
+            ) : (
             <form onSubmit={handleRegister} className="space-y-6">
               {error && (
                 <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl text-sm font-bold flex items-center gap-2">
@@ -280,7 +365,9 @@ export default function Register() {
                 </div>
               )}
               <div className="space-y-2">
-                <label className="text-sm font-bold text-slate-700 ml-1">Full Name</label>
+                <label className="text-sm font-bold text-slate-700 ml-1">
+                  {role === 'hospital' ? 'Hospital Name' : role === 'ambulance' ? 'Ambulance Name' : 'Full Name'}
+                </label>
                 <div className="relative group">
                   <div className={`absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center border-r border-slate-100 group-focus-within:border-blue-200 transition-colors`}>
                     <User className={`w-5 h-5 text-slate-400 group-focus-within:${config.color}`} />
@@ -288,13 +375,140 @@ export default function Register() {
                   <input 
                     required
                     type="text"
-                    placeholder="Enter your full name"
+                    placeholder={role === 'hospital' ? 'Enter hospital name' : role === 'ambulance' ? 'Enter ambulance name' : 'Enter your full name'}
                     className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl py-4 pl-16 pr-4 focus:border-blue-500 focus:bg-white outline-none transition-all text-slate-900 font-medium"
-                    value={formData.name}
-                    onChange={(e) => setFormData({...formData, name: e.target.value})}
+                    value={role === 'hospital' ? formData.hospitalName : role === 'ambulance' ? formData.ambulanceName : formData.name}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (role === 'hospital') setFormData({...formData, hospitalName: value});
+                      else if (role === 'ambulance') setFormData({...formData, ambulanceName: value});
+                      else setFormData({...formData, name: value});
+                    }}
                   />
                 </div>
               </div>
+
+              {(role === 'hospital' || role === 'ambulance') && (
+                <div className="space-y-6 pt-6 border-t border-slate-100">
+                  {role === 'hospital' && (
+                    <>
+                      <div className="space-y-2">
+                        <label className="text-sm font-bold text-slate-700 ml-1">Hospital Owner Name</label>
+                        <input
+                          required
+                          type="text"
+                          placeholder="Enter owner name"
+                          className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl py-4 px-6 focus:border-blue-500 focus:bg-white outline-none transition-all text-slate-900 font-medium"
+                          value={formData.hospitalOwnerName}
+                          onChange={(e) => setFormData({...formData, hospitalOwnerName: e.target.value})}
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                          <label className="text-sm font-bold text-slate-700 ml-1">Hospital License</label>
+                          <input
+                            required
+                            type="text"
+                            placeholder="Enter license number"
+                            className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl py-4 px-6 focus:border-blue-500 focus:bg-white outline-none transition-all text-slate-900 font-medium"
+                            value={formData.hospitalLicense}
+                            onChange={(e) => setFormData({...formData, hospitalLicense: e.target.value})}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-bold text-slate-700 ml-1">Hospital Email</label>
+                          <input
+                            required
+                            type="email"
+                            placeholder="hospital@example.com"
+                            className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl py-4 px-6 focus:border-blue-500 focus:bg-white outline-none transition-all text-slate-900 font-medium"
+                            value={formData.hospitalEmail}
+                            onChange={(e) => setFormData({...formData, hospitalEmail: e.target.value})}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                          <label className="text-sm font-bold text-slate-700 ml-1">Total Beds</label>
+                          <input
+                            required
+                            type="number"
+                            placeholder="e.g. 100"
+                            className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl py-4 px-6 focus:border-blue-500 focus:bg-white outline-none transition-all text-slate-900 font-medium"
+                            value={formData.totalBeds}
+                            onChange={(e) => setFormData({...formData, totalBeds: e.target.value})}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-bold text-slate-700 ml-1">Available Beds</label>
+                          <input
+                            required
+                            type="number"
+                            placeholder="e.g. 25"
+                            className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl py-4 px-6 focus:border-blue-500 focus:bg-white outline-none transition-all text-slate-900 font-medium"
+                            value={formData.availableBeds}
+                            onChange={(e) => setFormData({...formData, availableBeds: e.target.value})}
+                          />
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {role === 'ambulance' && (
+                    <>
+                      <div className="space-y-2">
+                        <label className="text-sm font-bold text-slate-700 ml-1">Ambulance Owner Name</label>
+                        <input
+                          required
+                          type="text"
+                          placeholder="Enter owner name"
+                          className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl py-4 px-6 focus:border-blue-500 focus:bg-white outline-none transition-all text-slate-900 font-medium"
+                          value={formData.ambulanceOwnerName}
+                          onChange={(e) => setFormData({...formData, ambulanceOwnerName: e.target.value})}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-sm font-bold text-slate-700 ml-1">Ambulance Registration Number</label>
+                        <input
+                          required
+                          type="text"
+                          placeholder="Enter reg number"
+                          className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl py-4 px-6 focus:border-blue-500 focus:bg-white outline-none transition-all text-slate-900 font-medium"
+                          value={formData.ambulanceRegNumber}
+                          onChange={(e) => setFormData({...formData, ambulanceRegNumber: e.target.value})}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-sm font-bold text-slate-700 ml-1">Ambulance Driver Name</label>
+                        <input
+                          required
+                          type="text"
+                          placeholder="Enter driver name"
+                          className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl py-4 px-6 focus:border-blue-500 focus:bg-white outline-none transition-all text-slate-900 font-medium"
+                          value={formData.ambulanceDriverName}
+                          onChange={(e) => setFormData({...formData, ambulanceDriverName: e.target.value})}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-sm font-bold text-slate-700 ml-1">Ambulance License</label>
+                        <input
+                          required
+                          type="text"
+                          placeholder="Enter vehicle license"
+                          className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl py-4 px-6 focus:border-blue-500 focus:bg-white outline-none transition-all text-slate-900 font-medium"
+                          value={formData.ambulanceLicense}
+                          onChange={(e) => setFormData({...formData, ambulanceLicense: e.target.value})}
+                        />
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
@@ -392,37 +606,11 @@ export default function Register() {
                     </div>
                   </div>
 
-                  {role === 'hospital' && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="space-y-2">
-                        <label className="text-sm font-bold text-slate-700 ml-1">Total Beds</label>
-                        <input 
-                          required
-                          type="number"
-                          placeholder="e.g. 100"
-                          className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl py-4 px-6 focus:border-blue-500 focus:bg-white outline-none transition-all text-slate-900 font-medium"
-                          value={formData.totalBeds}
-                          onChange={(e) => setFormData({...formData, totalBeds: e.target.value})}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-bold text-slate-700 ml-1">Available Beds</label>
-                        <input 
-                          required
-                          type="number"
-                          placeholder="e.g. 25"
-                          className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl py-4 px-6 focus:border-blue-500 focus:bg-white outline-none transition-all text-slate-900 font-medium"
-                          value={formData.availableBeds}
-                          onChange={(e) => setFormData({...formData, availableBeds: e.target.value})}
-                        />
-                      </div>
-                    </div>
-                  )}
 
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                      <label className="text-sm font-bold text-slate-700 ml-1">Location Coordinates</label>
-                      <button 
+                      <label className="text-sm font-bold text-slate-700 ml-1">Location Details</label>
+                      <button
                         type="button"
                         onClick={handleGetLocation}
                         disabled={isLocating}
@@ -431,8 +619,20 @@ export default function Register() {
                         {isLocating ? 'Locating...' : 'Detect My Location'}
                       </button>
                     </div>
+
+                    {/* Address Field */}
+                    <input
+                      required
+                      type="text"
+                      placeholder="Location Address (auto-filled when detecting location)"
+                      className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl py-4 px-6 focus:border-blue-500 focus:bg-white outline-none transition-all text-slate-900 font-medium"
+                      value={formData.address}
+                      onChange={(e) => setFormData({...formData, address: e.target.value})}
+                    />
+
+                    {/* Coordinates */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <input 
+                      <input
                         required
                         type="text"
                         placeholder="Latitude"
@@ -440,7 +640,7 @@ export default function Register() {
                         value={formData.lat}
                         onChange={(e) => setFormData({...formData, lat: e.target.value})}
                       />
-                      <input 
+                      <input
                         required
                         type="text"
                         placeholder="Longitude"
@@ -473,6 +673,7 @@ export default function Register() {
                 )}
               </motion.button>
             </form>
+            )}
           </div>
         </motion.div>
 

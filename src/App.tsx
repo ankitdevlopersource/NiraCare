@@ -23,6 +23,7 @@ import AIChatbot from './pages/AIChatbot';
 import LiveMap from './pages/LiveMap';
 import ReportAccident from './pages/ReportAccident';
 import Profile from './pages/Profile';
+import BloodBank from './pages/BloodBank';
 
 const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode, allowedRoles?: string[] }) => {
   const user = JSON.parse(localStorage.getItem('user') || '{}');
@@ -67,6 +68,7 @@ export default function App() {
           <Route path="live-map" element={<ProtectedRoute><LiveMap /></ProtectedRoute>} />
           <Route path="report-accident" element={<ProtectedRoute><ReportAccident /></ProtectedRoute>} />
           <Route path="profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+          <Route path="blood-bank" element={<ProtectedRoute><BloodBank /></ProtectedRoute>} />
           {/* Fallback for other routes */}
           <Route path="*" element={<Navigate to="/app" replace />} />
         </Route>
