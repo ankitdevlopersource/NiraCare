@@ -848,7 +848,7 @@ export default function HospitalDashboard() {
           <div className="w-8 h-8 bg-emerald-600 rounded-lg flex items-center justify-center shadow-lg shadow-emerald-100">
             <Activity className="w-5 h-5 text-white" />
           </div>
-          <h1 className="text-lg font-black text-slate-900 tracking-tight">NiraCare <span className="text-emerald-600">HMS</span></h1>
+          <h1 className="text-lg font-black text-slate-900 tracking-tight">Healthhaven <span className="text-emerald-600">HMS</span></h1>
         </div>
         <button 
           onClick={() => setIsSidebarOpen(!isSidebarOpen)}
@@ -882,7 +882,7 @@ export default function HospitalDashboard() {
             <div className="w-10 h-10 bg-emerald-600 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-100">
               <Activity className="w-6 h-6 text-white" />
             </div>
-            <h1 className="text-xl font-black text-slate-900 tracking-tight">NiraCare <span className="text-emerald-600">HMS</span></h1>
+            <h1 className="text-xl font-black text-slate-900 tracking-tight">Healthhaven <span className="text-emerald-600">HMS</span></h1>
           </div>
 
           <nav className="space-y-2">

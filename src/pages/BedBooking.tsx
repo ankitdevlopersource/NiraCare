@@ -44,6 +44,7 @@ export default function BedBooking() {
     otp: '',
     patientType: 'Critical',
     address: '',
+    conditionDescription: '',
     report: null as File | null
   });
 
@@ -66,6 +67,15 @@ export default function BedBooking() {
     }
   };
 
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
   const handleConfirm = async () => {
     if (isBooking) return;
     setIsBooking(true);
@@ -73,23 +83,44 @@ export default function BedBooking() {
     
     const user = JSON.parse(localStorage.getItem('user') || '{}');
     
+    if (!user || !user.id) {
+      setError('Please login to book a bed.');
+      setIsBooking(false);
+      return;
+    }
+    
     try {
-      await api.createBooking({
-        userId: user.id || 'anonymous',
+      const validPatientType = ['IPD', 'OPD', 'Critical', 'Emergency'];
+      const patientType = validPatientType.includes(patientDetails.patientType) ? patientDetails.patientType : 'OPD';
+
+      let reportName = '';
+      let reportData = '';
+      if (patientDetails.report) {
+        reportName = patientDetails.report.name;
+        reportData = await fileToBase64(patientDetails.report);
+      }
+
+      const response = await api.createBooking({
+        userId: user.id,
         hospitalId: hospital.id,
         hospitalName: hospital.name,
         patientName: patientDetails.name,
         aadharNumber: patientDetails.aadhar,
         mobileNumber: patientDetails.mobile,
         email: patientDetails.email,
-        patientType: patientDetails.patientType,
+        patientType: patientType,
         address: patientDetails.address,
+        conditionDescription: patientDetails.conditionDescription,
+        reportName,
+        reportData,
         bedType: bookingType,
       });
+      console.log('Booking successful:', response);
       setStep(3);
     } catch (err: any) {
-      console.error('Booking Error:', err);
-      setError(err.message || 'Failed to create booking');
+      console.error('Booking Error Details:', err);
+      const errorMessage = err.response?.data?.error || err.message || 'Failed to create booking';
+      setError(`Error: ${errorMessage}`);
     } finally {
       setIsBooking(false);
     }
@@ -361,6 +392,27 @@ export default function BedBooking() {
                       className="w-full bg-white border-2 border-slate-100 rounded-2xl py-4 px-6 focus:border-emerald-600 outline-none transition-all font-bold text-slate-900 resize-none"
                       value={patientDetails.address}
                       onChange={e => setPatientDetails({...patientDetails, address: e.target.value})}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Condition Description</label>
+                    <textarea
+                      placeholder="Describe patient condition / checkup findings..."
+                      rows={3}
+                      className="w-full bg-white border-2 border-slate-100 rounded-2xl py-4 px-6 focus:border-emerald-600 outline-none transition-all font-bold text-slate-900 resize-none"
+                      value={patientDetails.conditionDescription}
+                      onChange={e => setPatientDetails({...patientDetails, conditionDescription: e.target.value})}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Upload Report (Optional)</label>
+                    <input
+                      type="file"
+                      accept=".pdf,image/*"
+                      className="w-full text-xs"
+                      onChange={e => setPatientDetails({...patientDetails, report: e.target.files ? e.target.files[0] : null})}
                     />
                   </div>
 

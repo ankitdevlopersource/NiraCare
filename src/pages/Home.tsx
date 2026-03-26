@@ -68,7 +68,7 @@ export default function Home() {
               <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-lg">
                 <Plus className={`w-6 h-6 ${theme.text}`} />
               </div>
-              <h1 className="text-2xl font-black text-white tracking-tighter">NiraCare</h1>
+              <h1 className="text-2xl font-black text-white tracking-tighter">Healthhaven</h1>
             </div>
           </div>
           <div className="flex items-center gap-3">

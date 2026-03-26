@@ -191,7 +191,7 @@ export default function Login() {
               <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center shadow-lg">
                 <Plus className="w-5 h-5 text-blue-600" />
               </div>
-              <span className="font-black text-white text-xl tracking-tighter">NiraCare</span>
+              <span className="font-black text-white text-xl tracking-tighter">HealthHaven</span>
             </Link>
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 bg-white rounded-full animate-pulse"></span>
@@ -421,7 +421,7 @@ export default function Login() {
         <footer className="mt-12 text-center max-w-md">
           <p className="text-slate-400 text-xs font-medium leading-relaxed">
             By signing in, you agree to our <span className="text-slate-600 underline cursor-pointer">Terms of Service</span> and <span className="text-slate-600 underline cursor-pointer">Privacy Policy</span>.
-            <br />© 2026 NiraCare Healthcare Logistics.
+            <br />© 2026 Healthhaven Healthcare Logistics.
           </p>
         </footer>
       </main>

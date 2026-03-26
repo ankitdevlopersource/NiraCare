@@ -33,7 +33,7 @@ export default function Landing() {
           <div className="w-12 h-12 bg-emerald-600 rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-200">
             <Plus className="w-7 h-7 text-white" />
           </div>
-          <h1 className="text-4xl font-black text-slate-900 tracking-tighter">NiraCare</h1>
+          <h1 className="text-4xl font-black text-slate-900 tracking-tighter">Healthhaven</h1>
         </div>
         <p className="text-slate-500 font-medium text-lg">Smart Healthcare Referral & Bed Booking</p>
       </motion.div>
@@ -70,7 +70,7 @@ export default function Landing() {
         transition={{ delay: 0.8 }}
         className="mt-12 text-slate-400 text-sm font-medium"
       >
-        © 2026 NiraCare Inc. • All Rights Reserved
+        © 2026 Healthhaven Inc. • All Rights Reserved
       </motion.p>
     </div>
   );

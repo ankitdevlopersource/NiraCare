@@ -73,7 +73,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                 <div className="w-8 h-8 bg-emerald-600 rounded-lg flex items-center justify-center">
                   <Hospital className="w-5 h-5 text-white" />
                 </div>
-                <span className="text-xl font-bold text-slate-900">NiraCare</span>
+                <span className="text-xl font-bold text-slate-900">Healthhaven</span>
               </div>
               <button 
                 onClick={onClose}
@@ -128,7 +128,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                 <LogOut className="w-5 h-5" />
                 Sign Out
               </button>
-              <p className="text-center text-[10px] text-slate-400 mt-4 font-medium">Version 1.0.4 • NiraCare Inc.</p>
+              <p className="text-center text-[10px] text-slate-400 mt-4 font-medium">Version 1.0.4 • Healthhaven Inc.</p>
             </div>
           </motion.div>
         </>

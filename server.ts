@@ -13,7 +13,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = 3000;
+const DEFAULT_PORT = Number(process.env.PORT) || 3000;
 
 console.log(`NODE_ENV is set to: ${process.env.NODE_ENV}`);
 
@@ -175,8 +175,11 @@ const bookingSchema = new mongoose.Schema({
   aadharNumber: String,
   mobileNumber: String,
   email: String,
-  patientType: { type: String, enum: ['IPD', 'OPD'], default: 'OPD' },
+  patientType: { type: String, enum: ['IPD', 'OPD', 'Critical', 'Emergency'], default: 'OPD' },
   address: String,
+  conditionDescription: String,
+  reportName: String,
+  reportData: String,
   bedType: String,
   status: { type: String, default: 'Pending' }, // Pending, Admitted, Discharged, Rejected
   billingAmount: { type: Number, default: 0 },
@@ -301,7 +304,7 @@ if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
 }
 
 // Pre-defined Owner Credentials
-const OWNER_EMAIL = "owner@niracare.com";
+const OWNER_EMAIL = "owner@healthhaven.com";
 const OWNER_PASSWORD = "owner_password_123";
 
 // API Routes
@@ -392,8 +395,8 @@ app.post("/api/auth/forgot-password", async (req, res) => {
     const mailOptions = {
       from: process.env.EMAIL_USER,
       to: email,
-      subject: 'NiraCare Password Reset Request',
-      text: `Hello ${user.name},\n\nYou requested a password reset for your NiraCare account. If you did not make this request, please ignore this email.\n\nTo reset your password, please proceed to the reset page in the app.`,
+      subject: 'HealthHaven Password Reset Request',
+      text: `Hello ${user.name},\n\nYou requested a password reset for your HealthHaven account. If you did not make this request, please ignore this email.\n\nTo reset your password, please proceed to the reset page in the app.`,
     };
 
     if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
@@ -478,11 +481,26 @@ app.get("/api/users", async (req, res) => {
 
 app.post("/api/bookings", async (req, res) => {
   try {
+    console.log('Received booking request:', req.body);
+
+    // Check if DB is connected
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({ 
+        message: "Database connection is not ready. Please check MONGODB_URI in settings.",
+        dbStatus: mongoose.connection.readyState 
+      });
+    }
+
     const booking = new Booking(req.body);
     await booking.save();
     res.status(201).json({ message: "Booking successful", booking });
-  } catch (error) {
-    res.status(500).json({ message: "Error creating booking", error });
+  } catch (error: any) {
+    console.error("Booking Error:", error);
+    const msg = error.message || error.toString();
+    res.status(500).json({ 
+      message: "Error creating booking", 
+      error: msg
+    });
   }
 });
 
@@ -687,14 +705,26 @@ app.use((err: any, req: any, res: any, next: any) => {
   });
 });
 
-initVite().then(() => {
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+function startServer(port: number) {
+  const server = app.listen(port, "0.0.0.0", () => {
+    console.log(`Server running on http://localhost:${port}`);
   });
+
+  server.on('error', (err: any) => {
+    if (err.code === 'EADDRINUSE') {
+      console.warn(`Port ${port} is in use, trying ${port + 1}...`);
+      setTimeout(() => startServer(port + 1), 500);
+    } else {
+      console.error('Server error:', err);
+      process.exit(1);
+    }
+  });
+}
+
+initVite().then(() => {
+  startServer(DEFAULT_PORT);
 }).catch((err) => {
   console.error("CRITICAL: Failed to initialize Vite server:", err);
   // Try to start the server anyway to serve API routes
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT} (WITHOUT VITE MIDDLEWARE)`);
-  });
+  startServer(DEFAULT_PORT);
 });

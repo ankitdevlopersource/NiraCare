@@ -1,4 +1,4 @@
-# NiraCare Healthcare Logistics
+# HealthHaven Healthcare Logistics
 
 ## Features
 - Real-time Bed Booking

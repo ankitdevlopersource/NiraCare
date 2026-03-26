@@ -18,6 +18,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import { GoogleGenAI } from "@google/genai";
+import OpenAI from "openai";
 
 const LANGUAGES = [
   { code: 'en', name: 'English', native: 'English' },
@@ -45,7 +46,7 @@ export default function AIChatbot() {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      text: "Hello! I am Nira, your friendly AI Health Assistant. ✨ How can I help you today? Please select your language and category to get started. 🩺",
+      text: "Hello! I am HealthHaven, your friendly AI Health Assistant. ✨ How can I help you today? Please select your language and category to get started. 🩺",
       sender: 'bot',
       timestamp: new Date(),
     }
@@ -180,52 +181,118 @@ export default function AIChatbot() {
     setMessages(prev => [...prev, initialBotMessage]);
 
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
-      const model = "gemini-3.1-pro-preview";
-      
-      const langName = LANGUAGES.find(l => l.code === selectedLang)?.name || 'English';
-      
-      const systemInstruction = `
-        You are Nira, a friendly, empathetic, and professional AI Health Assistant. 
-        Your goal is to provide helpful health advice and support in a way that feels human and engaging.
-        
-        Current Context: Category - ${selectedCategory}, Language - ${langName}.
-        
-        Rules:
-        1. Always respond in ${langName}.
-        2. Introduce yourself as Nira if appropriate.
-        3. Use a warm, human-like tone. Be empathetic and supportive.
-        4. Use emojis to make the conversation more engaging and attractive (e.g., 👋, 🩺, 💊, 🚑, ✨, ❤️).
-        5. Use clear bullet points for steps, treatments, or lists to make them easy to read.
-        6. If the user describes symptoms, identify potential issues and provide immediate FIRST TREATMENT/FIRST AID suggestions.
-        7. ALWAYS include a disclaimer that you are an AI and they should consult a real doctor immediately for serious issues.
-        8. If it's an emergency, tell them to call an ambulance immediately 🚑.
-        9. Keep responses structured, concise, and visually appealing.
-      `;
+      // Try Grok API first
+      try {
+        const openai = new OpenAI({
+          apiKey: process.env.GROK_API_KEY || '',
+          baseURL: 'https://api.x.ai/v1',
+        });
 
-      const responseStream = await ai.models.generateContentStream({
-        model: model,
-        contents: currentInput,
-        config: {
-          systemInstruction: systemInstruction,
-        },
-      });
+        const langName = LANGUAGES.find(l => l.code === selectedLang)?.name || 'English';
+        
+        const systemInstruction = `
+          You are HealthHaven, a friendly, empathetic, and professional AI Health Assistant. 
+          Your goal is to provide helpful health advice and support in a way that feels human and engaging.
+          
+          Current Context: Category - ${selectedCategory}, Language - ${langName}.
+          
+          Rules:
+          1. Always respond in ${langName}.
+          2. Introduce yourself as HealthHaven if appropriate.
+          3. Use a warm, human-like tone. Be empathetic and supportive.
+          4. Use emojis to make the conversation more engaging and attractive (e.g., 👋, 🩺, 💊, 🚑, ✨, ❤️).
+          5. Use clear bullet points for steps, treatments, or lists to make them easy to read.
+          6. If the user describes symptoms, identify potential issues and provide immediate FIRST TREATMENT/FIRST AID suggestions.
+          7. ALWAYS include a disclaimer that you are an AI and they should consult a real doctor immediately for serious issues.
+          8. If it's an emergency, tell them to call an ambulance immediately 🚑.
+          9. Keep responses structured, concise, and visually appealing.
+        `;
 
-      let fullText = "";
-      for await (const chunk of responseStream) {
-        const text = chunk.text;
-        if (text) {
-          fullText += text;
-          setMessages(prev => prev.map(m => 
-            m.id === botMessageId ? { ...m, text: fullText } : m
-          ));
+        const completion = await openai.chat.completions.create({
+          model: 'grok-1',
+          messages: [
+            { role: 'system', content: systemInstruction },
+            { role: 'user', content: currentInput }
+          ],
+          max_tokens: 1000,
+          temperature: 0.7,
+        });
+
+        const response = completion.choices[0]?.message?.content || 'Sorry, I could not generate a response.';
+        
+        setMessages(prev => prev.map(m => 
+          m.id === botMessageId ? { ...m, text: response } : m
+        ));
+        
+      } catch (grokError) {
+        console.log('Grok API failed, trying Gemini as fallback:', grokError.message);
+        
+        // Fallback to Gemini API
+        const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+        const model = "gemini-3.1-pro-preview";
+        
+        const langName = LANGUAGES.find(l => l.code === selectedLang)?.name || 'English';
+        
+        const systemInstruction = `
+          You are HealthHaven, a friendly, empathetic, and professional AI Health Assistant. 
+          Your goal is to provide helpful health advice and support in a way that feels human and engaging.
+          
+          Current Context: Category - ${selectedCategory}, Language - ${langName}.
+          
+          Rules:
+          1. Always respond in ${langName}.
+          2. Introduce yourself as HealthHaven if appropriate.
+          3. Use a warm, human-like tone. Be empathetic and supportive.
+          4. Use emojis to make the conversation more engaging and attractive (e.g., 👋, 🩺, 💊, 🚑, ✨, ❤️).
+          5. Use clear bullet points for steps, treatments, or lists to make them easy to read.
+          6. If the user describes symptoms, identify potential issues and provide immediate FIRST TREATMENT/FIRST AID suggestions.
+          7. ALWAYS include a disclaimer that you are an AI and they should consult a real doctor immediately for serious issues.
+          8. If it's an emergency, tell them to call an ambulance immediately 🚑.
+          9. Keep responses structured, concise, and visually appealing.
+        `;
+
+        const responseStream = await genAI.models.generateContentStream({
+          model: model,
+          contents: [{ role: 'user', parts: [{ text: currentInput }] }],
+          config: {
+            systemInstruction: systemInstruction,
+          },
+        });
+
+        let fullText = "";
+        for await (const chunk of responseStream) {
+          const text = chunk.text;
+          if (text) {
+            fullText += text;
+            setMessages(prev => prev.map(m => 
+              m.id === botMessageId ? { ...m, text: fullText } : m
+            ));
+          }
         }
       }
     } catch (error) {
       console.error("Chat Error:", error);
-      setMessages(prev => prev.map(m => 
-        m.id === botMessageId ? { ...m, text: "Sorry, I'm having trouble connecting. Please check your internet or try again later." } : m
-      ));
+      
+      // Check if it's a quota exceeded error
+      const errorMessage = error?.message || '';
+      if (errorMessage.includes('quota') || errorMessage.includes('RESOURCE_EXHAUSTED')) {
+        // Fallback responses when API quota is exceeded
+        const fallbackResponses = [
+          "नमस्ते! मैं HealthHaven हूँ, आपकी स्वास्थ्य सहायक। अभी मेरी दैनिक सीमा पूरी हो गई है, लेकिन मैं आपको कुछ बुनियादी सलाह दे सकती हूँ। कृपया डॉक्टर से संपर्क करें। 🩺",
+          "Hello! I'm HealthHaven, your health assistant. My daily limit is reached, but I can give basic advice. Please consult a doctor for serious issues. 💙",
+          "Hi there! I'm currently at my daily limit, but remember: for emergencies, call ambulance immediately 🚑. Stay safe!",
+          "नमस्ते! मेरी दैनिक सीमा खत्म हो गई है। बुनियादी स्वास्थ्य सलाह के लिए: आराम करें, पानी पिएं, और डॉक्टर से मिलें। स्वास्थ्य आपका अधिकार है! 🏥"
+        ];
+        
+        const randomResponse = fallbackResponses[Math.floor(Math.random() * fallbackResponses.length)];
+        setMessages(prev => prev.map(m => 
+          m.id === botMessageId ? { ...m, text: randomResponse } : m
+        ));
+      } else {
+        setMessages(prev => prev.map(m => 
+          m.id === botMessageId ? { ...m, text: "Sorry, I'm having trouble connecting. Please check your internet or try again later." } : m
+        ));
+      }
     } finally {
       setIsLoading(false);
     }
@@ -283,7 +350,7 @@ export default function AIChatbot() {
               <div className="absolute inset-0 bg-emerald-500 blur-xl opacity-40 animate-pulse"></div>
             </div>
             <div>
-              <h1 className="text-xl font-black text-white tracking-tight">Nira AI</h1>
+              <h1 className="text-xl font-black text-white tracking-tight">HealthHaven AI</h1>
               <div className="flex items-center gap-2">
                 <span className="flex h-2 w-2 relative">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>

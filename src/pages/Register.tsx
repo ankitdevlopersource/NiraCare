@@ -94,7 +94,7 @@ export default function Register() {
         color: 'text-emerald-600', 
         bg: 'bg-emerald-600',
         accent: 'from-emerald-600 to-teal-700',
-        quote: "Transform your facility into a smart healthcare hub with NiraCare."
+        quote: "Transform your facility into a smart healthcare hub with HealthHaven."
       };
       case 'ambulance': return { 
         label: 'Ambulance', 
@@ -186,7 +186,10 @@ export default function Register() {
         };
       }
 
-      await api.register(registrationData);
+      await api.register({
+        ...registrationData,
+        role
+      });
       navigate('/login?role=' + role);
     } catch (err: any) {
       setError(err.message || 'Registration failed');
@@ -205,7 +208,7 @@ export default function Register() {
               <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center shadow-lg">
                 <Plus className="w-5 h-5 text-blue-600" />
               </div>
-              <span className="font-black text-white text-xl tracking-tighter">NiraCare</span>
+              <span className="font-black text-white text-xl tracking-tighter">HealthHaven</span>
             </Link>
             <Link 
               to={`/login?role=${role}`}
@@ -476,7 +479,7 @@ export default function Register() {
         <footer className="mt-12 text-center max-w-md">
           <p className="text-slate-400 text-xs font-medium leading-relaxed">
             By registering, you agree to our <span className="text-slate-600 underline cursor-pointer">Terms of Service</span> and <span className="text-slate-600 underline cursor-pointer">Privacy Policy</span>.
-            <br />© 2026 NiraCare Healthcare Logistics.
+            <br />© 2026 Healthhaven Healthcare Logistics.
           </p>
         </footer>
       </main>

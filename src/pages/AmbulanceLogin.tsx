@@ -29,6 +29,17 @@ export default function AmbulanceLogin() {
     setSuccess('');
     try {
       await signInWithEmailAndPassword(auth, email, password);
+      // Set user data in localStorage
+      const user = auth.currentUser;
+      if (user) {
+        const userData = {
+          id: user.uid,
+          email: user.email,
+          name: user.displayName || 'Ambulance Driver',
+          role: 'ambulance'
+        };
+        localStorage.setItem('user', JSON.stringify(userData));
+      }
       navigate('/app/ambulance-dashboard');
     } catch (err: any) {
       console.error("Login error:", err);
@@ -78,7 +89,7 @@ export default function AmbulanceLogin() {
             <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-xl">
               <Plus className="w-8 h-8 text-red-600" />
             </div>
-            <span className="text-2xl font-black text-white tracking-tighter">NiraCare</span>
+            <span className="text-2xl font-black text-white tracking-tighter">HealthHaven</span>
           </div>
           <h1 className="text-6xl font-black text-white tracking-tighter mb-6 leading-none">
             Emergency<br/>Response<br/>Portal
@@ -110,7 +121,7 @@ export default function AmbulanceLogin() {
             <div className="w-10 h-10 bg-red-600 rounded-xl flex items-center justify-center shadow-lg">
               <Plus className="w-6 h-6 text-white" />
             </div>
-            <span className="text-xl font-black text-slate-900 tracking-tighter">NiraCare</span>
+            <span className="text-xl font-black text-slate-900 tracking-tighter">Healthhaven</span>
           </div>
 
           <div>
@@ -150,7 +161,7 @@ export default function AmbulanceLogin() {
                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-red-600 transition-colors" />
                 <input 
                   type="email"
-                  placeholder="driver@niracare.com"
+                  placeholder="driver@healthhaven.com"
                   className="w-full bg-white border-2 border-slate-100 rounded-2xl py-4 pl-12 pr-4 focus:border-red-600 outline-none transition-all font-bold text-slate-900"
                   value={email}
                   onChange={e => setEmail(e.target.value)}
@@ -209,7 +220,7 @@ export default function AmbulanceLogin() {
           </button>
 
           <p className="text-center text-slate-400 font-bold text-xs uppercase tracking-widest">
-            Need help? <Link to="/register" className="text-red-600 hover:underline">Register your vehicle</Link>
+            Need help? <Link to="/register?role=ambulance" className="text-red-600 hover:underline">Register your vehicle</Link>
           </p>
         </div>
       </div>
